@@ -78,14 +78,15 @@ nk_draw_slider(struct nk_command_buffer *out, nk_flags state,
         bar_color = style->bar_normal;
         cursor = &style->cursor_normal;
     }
+
     /* calculate slider background bar */
     bar.x = bounds->x;
-    bar.y = (visual_cursor->y + visual_cursor->h/2) - bounds->h/12;
+    bar.y = (bounds->y + bounds->h*0.5f) - style->bar_height*0.5f;
     bar.w = bounds->w;
-    bar.h = bounds->h/6;
+    bar.h = style->bar_height;
 
     /* filled background bar style */
-    fill.w = (visual_cursor->x + (visual_cursor->w/2.0f)) - bar.x;
+    fill.w = visual_cursor->x + 0.5f * visual_cursor->w - bar.x;
     fill.x = bar.x;
     fill.y = bar.y;
     fill.h = bar.h;
@@ -93,26 +94,26 @@ nk_draw_slider(struct nk_command_buffer *out, nk_flags state,
     /* draw background */
     switch(background->type) {
         case NK_STYLE_ITEM_IMAGE:
-            nk_draw_image(out, *bounds, &background->data.image, nk_white);
+            nk_draw_image(out, *bounds, &background->data.image, nk_rgb_factor(nk_white, style->color_factor));
             break;
         case NK_STYLE_ITEM_NINE_SLICE:
-            nk_draw_nine_slice(out, *bounds, &background->data.slice, nk_white);
+            nk_draw_nine_slice(out, *bounds, &background->data.slice, nk_rgb_factor(nk_white, style->color_factor));
             break;
         case NK_STYLE_ITEM_COLOR:
-            nk_fill_rect(out, *bounds, style->rounding, background->data.color);
-            nk_stroke_rect(out, *bounds, style->rounding, style->border, style->border_color);
+            nk_fill_rect(out, *bounds, style->rounding, nk_rgb_factor(background->data.color, style->color_factor));
+            nk_stroke_rect(out, *bounds, style->rounding, style->border, nk_rgb_factor(style->border_color, style->color_factor));
             break;
     }
 
     /* draw slider bar */
-    nk_fill_rect(out, bar, style->rounding, bar_color);
-    nk_fill_rect(out, fill, style->rounding, style->bar_filled);
+    nk_fill_rect(out, bar, style->rounding, nk_rgb_factor(bar_color, style->color_factor));
+    nk_fill_rect(out, fill, style->rounding, nk_rgb_factor(style->bar_filled, style->color_factor));
 
     /* draw cursor */
     if (cursor->type == NK_STYLE_ITEM_IMAGE)
-        nk_draw_image(out, *visual_cursor, &cursor->data.image, nk_white);
+        nk_draw_image(out, *visual_cursor, &cursor->data.image, nk_rgb_factor(nk_white, style->color_factor));
     else
-        nk_fill_circle(out, *visual_cursor, cursor->data.color);
+        nk_fill_circle(out, *visual_cursor, nk_rgb_factor(cursor->data.color, style->color_factor));
 }
 NK_LIB float
 nk_do_slider(nk_flags *state,
@@ -167,10 +168,6 @@ nk_do_slider(nk_flags *state,
         bounds.x = bounds.x + button.w + style->spacing.x;
         bounds.w = bounds.w - (2*button.w + 2*style->spacing.x);
     }
-
-    /* remove one cursor size to support visual cursor */
-    bounds.x += style->cursor_size.x*0.5f;
-    bounds.w -= style->cursor_size.x;
 
     /* make sure the provided values are correct */
     slider_max = NK_MAX(min, max);
@@ -230,7 +227,7 @@ nk_slider_float(struct nk_context *ctx, float min_value, float *value, float max
 
     state = nk_widget(&bounds, ctx);
     if (!state) return ret;
-    in = (/*state == NK_WIDGET_ROM || */ layout->flags & NK_WINDOW_ROM) ? 0 : &ctx->input;
+    in = (/*state == NK_WIDGET_ROM || */ state == NK_WIDGET_DISABLED || layout->flags & NK_WINDOW_ROM) ? 0 : &ctx->input;
 
     old_value = *value;
     *value = nk_do_slider(&ctx->last_widget_state, &win->buffer, bounds, min_value,

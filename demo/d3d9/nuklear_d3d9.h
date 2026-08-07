@@ -41,6 +41,7 @@ NK_API void nk_d3d9_shutdown(void);
 #define COBJMACROS
 #include <d3d9.h>
 
+#include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -58,7 +59,7 @@ static struct {
     struct nk_font_atlas atlas;
     struct nk_buffer cmds;
 
-    struct nk_draw_null_texture null;
+    struct nk_draw_null_texture tex_null;
 
     D3DVIEWPORT9 viewport;
     D3DMATRIX projection;
@@ -150,9 +151,9 @@ nk_d3d9_render(enum nk_anti_aliasing AA)
         config.circle_segment_count = 22;
         config.curve_segment_count = 22;
         config.arc_segment_count = 22;
-        config.null = d3d9.null;
+        config.tex_null = d3d9.tex_null;
 
-        /* convert shapes into vertexes */
+        /* convert shapes into vertices */
         nk_buffer_init_default(&vbuf);
         nk_buffer_init_default(&ebuf);
         nk_convert(&d3d9.ctx, &d3d9.cmds, &vbuf, &ebuf, &config);
@@ -248,7 +249,7 @@ nk_d3d9_create_font_texture()
     hr = IDirect3DTexture9_UnlockRect(d3d9.texture, 0);
     NK_ASSERT(SUCCEEDED(hr));
 
-    nk_font_atlas_end(&d3d9.atlas, nk_handle_ptr(d3d9.texture), &d3d9.null);
+    nk_font_atlas_end(&d3d9.atlas, nk_handle_ptr(d3d9.texture), &d3d9.tex_null);
 }
 
 NK_API void
@@ -268,6 +269,7 @@ nk_d3d9_resize(int width, int height)
 NK_API int
 nk_d3d9_handle_event(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
+    static int insert_toggle = 0;
     switch (msg)
     {
     case WM_KEYDOWN:
@@ -291,6 +293,7 @@ nk_d3d9_handle_event(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam)
             return 1;
 
         case VK_RETURN:
+        case VK_SEPARATOR:
             nk_input_key(&d3d9.ctx, NK_KEY_ENTER, down);
             return 1;
 
@@ -333,6 +336,89 @@ nk_d3d9_handle_event(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam)
         case VK_PRIOR:
             nk_input_key(&d3d9.ctx, NK_KEY_SCROLL_UP, down);
             return 1;
+
+        case VK_ESCAPE:
+            nk_input_key(&d3d9.ctx, NK_KEY_TEXT_RESET_MODE, down);
+            return 1;
+
+        case VK_MENU:
+            nk_input_key(&d3d9.ctx, NK_KEY_ALT, down);
+            return 1;
+
+        case VK_F1:
+            nk_input_key(&d3d9.ctx, NK_KEY_F1, down);
+            return 1;
+        case VK_F2:
+            nk_input_key(&d3d9.ctx, NK_KEY_F2, down);
+            return 1;
+        case VK_F3:
+            nk_input_key(&d3d9.ctx, NK_KEY_F3, down);
+            return 1;
+        case VK_F4:
+            nk_input_key(&d3d9.ctx, NK_KEY_F4, down);
+            return 1;
+        case VK_F5:
+            nk_input_key(&d3d9.ctx, NK_KEY_F5, down);
+            return 1;
+        case VK_F6:
+            nk_input_key(&d3d9.ctx, NK_KEY_F6, down);
+            return 1;
+        case VK_F7:
+            nk_input_key(&d3d9.ctx, NK_KEY_F7, down);
+            return 1;
+        case VK_F8:
+            nk_input_key(&d3d9.ctx, NK_KEY_F8, down);
+            return 1;
+        case VK_F9:
+            nk_input_key(&d3d9.ctx, NK_KEY_F9, down);
+            return 1;
+        case VK_F10:
+            nk_input_key(&d3d9.ctx, NK_KEY_F10, down);
+            return 1;
+        case VK_F11:
+            nk_input_key(&d3d9.ctx, NK_KEY_F11, down);
+            return 1;
+        case VK_F12:
+            nk_input_key(&d3d9.ctx, NK_KEY_F12, down);
+            return 1;
+
+        case VK_INSERT:
+        /* Only switch on release to avoid repeat issues
+         * kind of confusing since we have to negate it but we're already
+         * hacking it since Nuklear treats them as two separate keys rather
+         * than a single toggle state */
+            if (!down) {
+                insert_toggle = !insert_toggle;
+                if (insert_toggle) {
+                    nk_input_key(&d3d9.ctx, NK_KEY_TEXT_INSERT_MODE, !down);
+                    /* nk_input_key(&d3d9.ctx, NK_KEY_TEXT_REPLACE_MODE, down); */
+                } else {
+                    nk_input_key(&d3d9.ctx, NK_KEY_TEXT_REPLACE_MODE, !down);
+                    /* nk_input_key(&d3d9.ctx, NK_KEY_TEXT_INSERT_MODE, down); */
+                }
+            }
+            return 1;
+
+        case 'A':
+            if (ctrl) {
+                nk_input_key(&d3d9.ctx, NK_KEY_TEXT_SELECT_ALL, down);
+                return 1;
+            }
+            break;
+
+        case 'B':
+            if (ctrl) {
+                nk_input_key(&d3d9.ctx, NK_KEY_TEXT_LINE_START, down);
+                return 1;
+            }
+            break;
+
+        case 'E':
+            if (ctrl) {
+                nk_input_key(&d3d9.ctx, NK_KEY_TEXT_LINE_END, down);
+                return 1;
+            }
+            break;
 
         case 'C':
             if (ctrl) {
@@ -411,6 +497,30 @@ nk_d3d9_handle_event(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam)
         ReleaseCapture();
         return 1;
 
+    case WM_XBUTTONDOWN:
+        switch (GET_XBUTTON_WPARAM(wparam)) {
+        case XBUTTON1:
+            nk_input_button(&d3d9.ctx, NK_BUTTON_X1, (short)LOWORD(lparam), (short)HIWORD(lparam), 1);
+            break;
+        case XBUTTON2:
+            nk_input_button(&d3d9.ctx, NK_BUTTON_X2, (short)LOWORD(lparam), (short)HIWORD(lparam), 1);
+            break;
+        }
+        SetCapture(wnd);
+        return 1;
+
+    case WM_XBUTTONUP:
+        switch (GET_XBUTTON_WPARAM(wparam)) {
+        case XBUTTON1:
+            nk_input_button(&d3d9.ctx, NK_BUTTON_X1, (short)LOWORD(lparam), (short)HIWORD(lparam), 0);
+            break;
+        case XBUTTON2:
+            nk_input_button(&d3d9.ctx, NK_BUTTON_X2, (short)LOWORD(lparam), (short)HIWORD(lparam), 0);
+            break;
+        }
+        ReleaseCapture();
+        return 1;
+
     case WM_MOUSEWHEEL:
         nk_input_scroll(&d3d9.ctx, nk_vec2(0,(float)(short)HIWORD(wparam) / WHEEL_DELTA));
         return 1;
@@ -468,7 +578,7 @@ nk_d3d9_clipboard_paste(nk_handle usr, struct nk_text_edit *edit)
         }
     }
 
-    GlobalUnlock(mem); 
+    GlobalUnlock(mem);
     CloseClipboard();
 }
 
@@ -491,7 +601,7 @@ nk_d3d9_clipboard_copy(nk_handle usr, const char *text, int len)
                 MultiByteToWideChar(CP_UTF8, 0, text, len, wstr, wsize);
                 wstr[wsize] = 0;
                 GlobalUnlock(mem);
-                SetClipboardData(CF_UNICODETEXT, mem); 
+                SetClipboardData(CF_UNICODETEXT, mem);
             }
         }
     }
